@@ -20,6 +20,8 @@ case "$BRAND" in
 			KEYS=/usr/share/keyrings/debian-role-keys.gpg
 			;;
 (*ubuntu)		SIGS=gpg
+			BASE="http://releases.ubuntu.com/%s/ubuntu-%s-desktop-amd64.iso"
+			[ ubuntu = "$BRAND" ] ||
 			BASE="http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-amd64.iso"
 			SHA512=n
 			KEYS=/usr/share/keyrings/ubuntu-archive-keyring.gpg
