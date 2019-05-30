@@ -112,4 +112,4 @@ check SHA256SUMS	sha256sum
 check SHA512SUMS	sha512sum
 
 SHORT="${BASE##*/}"
-ln -s "$DAT" "${SHORT//-%s-/}"
+ln -s "$DAT" "${SHORT//-%s-/-}"
