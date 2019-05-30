@@ -15,7 +15,7 @@ BRAND="${BRAND%-}"
 case "$BRAND" in
 (''|debian)		SIGS=sign
 			BRAND=debian
-			BASE="http://cdimage.debian.org/debian-cd/%s/amd64/iso-cd/debian-%s-amd64-netinst.iso"
+			BASE="http://cdimage.debian.org/cdimage/release/%s/amd64/iso-cd/debian-%s-amd64-netinst.iso"
 			SHA512=y
 			KEYS=/usr/share/keyrings/debian-role-keys.gpg
 			;;
