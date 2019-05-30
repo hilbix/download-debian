@@ -111,3 +111,5 @@ check SHA256SUMS	sha256sum
 [ n = "$SHA512" ] ||
 check SHA512SUMS	sha512sum
 
+SHORT="${BASE##*/}"
+ln -s "$DAT" "${SHORT//-%s-/}"
