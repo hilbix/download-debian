@@ -1,51 +1,119 @@
 #!/bin/bash
 
-VERS="$1"
+DEST="${1%/}"
+DEST="${DEST##*/}"
 
 OOPS() { echo "$*" >&2; exit 23; }
 o() { "$@" || OOPS "exec $?: $*"; }
 v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
 
-[ -n "$VERS" ] || read -p 'Version (like: 9.3.0): ' VERS || exit
+[ -n "$DEST" ] || read -p $'Examples: 9.9.0:i386 debian-9.9.0 debian-daily debian-weekly debian-archive-9.3.0\nExamples: ubuntu-18.04 kubuntu-18.04 ubuntu-server-18.04\nExamples: devuan-jessie-1.0.0 devuan-ascii-2.0.0\nVersion? ' DEST || exit
 
-BRAND="$VERS"
-VERS="${VERS#[a-z]*-}"
-BRAND="${BRAND%"$VERS"}"
+VERS="${DEST%:*}"
+DEST="${DEST#"$VERS"}"
+ARCH="${DEST#:}"
+ARCH="${ARCH:-amd64}"
+
+VERS="${VERS%":$ARCH"}"
+BRAND="${VERS%%[0-9]*}"
+VERS="${VERS#"$BRAND"}"
+
 BRAND="${BRAND%-}"
+
 case "$BRAND" in
-(''|debian)		SIGS=sign
+(''|debian)		BASE="http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
 			BRAND=debian
-			BASE="http://cdimage.debian.org/cdimage/release/%s/amd64/iso-cd/debian-%s-amd64-netinst.iso"
-			SHA512=y
-			KEYS=/usr/share/keyrings/debian-role-keys.gpg
 			;;
-(*ubuntu)		SIGS=gpg
-			BASE="http://releases.ubuntu.com/%s/ubuntu-%s-desktop-amd64.iso"
-			[ ubuntu = "$BRAND" ] ||
-			BASE="http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-amd64.iso"
-			SHA512=n
-			KEYS=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+(debian-archive)	BASE="http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+			BRAND=debian
+			;;
+(debian-weekly)		BASE="https://cdimage.debian.org/cdimage/weekly-builds/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+			VERS="$(date +%Y.%V)"
+			;;
+(debian-daily)		BASE="https://cdimage.debian.org/cdimage/daily-builds/daily/current/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+			VERS="$(date +%Y.%m.%d)"
+			;;
+(ubuntu)		BASE="http://releases.ubuntu.com/%s/ubuntu-%s-desktop-$ARCH.iso"
+			;;
+(*buntu)		BASE="http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-$ARCH.iso"
+			;;
+(ubuntu-server)		BASE="http://cdimage.ubuntu.com/ubuntu/releases/%s/release/ubuntu-%s-server-$ARCH.iso"
+			;;
+# found no way to automate ubuntu-daily, as this has no stable codename
+# sadly, devuan is not autodetectable either, so you must give
+# devuan-jessie-1.0.0 or devuan-ascii-2.0.0
+(devuan-*)		BASE="https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+			BRAND=devuan
 			;;
 (*)			OOPS "unknown brand: $BRAND for version $VERS";;
 esac
 
-case "$VERS" in
-*[^0-9.]*)	OOPS "Huh? Version is $VERS";;
-[0-9]*.*[0-9])	;;
-*)		OOPS "Huh? Version is $VERS";;
+MD5SUMS=y
+SHA1SUMS=y
+SHA256SUMS=y
+SHA512SUMS=y
+
+case "$BRAND" in
+debian*)	KEYS=debian-role-keys.gpg
+		SIGS=sign
+		;;
+*buntu)		KEYS=ubuntu-archive-keyring.gpg
+		SIGS=gpg
+		SHA512SUMS=n
+		;;
+(devuan)	KEYS=devuan-devs.gpg
+		SIGS=asc
+		MD5SUMS=n
+		SHA1SUMS=n
+		SHA512SUMS=n
+		;;
+(*)		OOPS "unknown brand: $BRAND for version $VERS";;
 esac
 
+case "$VERS" in
+(*[^0-9._r]*)	OOPS "Huh? Version is $VERS";;
+([1-4].[0-9]_r[0-9])	;;
+(*[^0-9.]*)	OOPS "Huh? Version is $VERS";;
+([0-9]*.*[0-9])	;;
+(*)		OOPS "Huh? Version is $VERS";;
+esac
+
+for a in "/usr/share/keyrings/$KEYS" "/usr/local/share/keyrings/$KEYS" "/etc/keyring/$KEYS" "$HOME/.keyrings/$KEYS" "$HOME/.gnupg/$KEYS" keyrings/*/"$KEYS"
+do
+	[ -s "$a" ] && KEYS="$(readlink -e -- "$a")"
+done
+
+# try: apt-get install debian-keyring ubuntu-keyring devuan-keyring
 [ -f "$KEYS" ] || OOPS missing file: "$KEYS"
 
-o printf -v URL "$BASE" "$VERS" "$VERS"
+FIXVERS="$VERS"
+case "$BRAND:$VERS" in
+(debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
+esac
 
-[ -d "$BRAND-$VERS" ] || o mkdir "$BRAND-$VERS"
-o cd "$BRAND-$VERS"
+case "$BASE" in
+(*%s*%s*)	o printf -v URL "$BASE" "$VERS" "$FIXVERS";;
+(*%s*)		o printf -v URL "$BASE" "$VERS";;
+(*)		URL="$BASE";;
+esac
+
+#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
+
+o cd "$(dirname -- "$0")"
+o mkdir -pm755 DATA ISO
+
+DIR="$BRAND-$VERS:$ARCH"
+
+[ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
+o pushd "DATA/$DIR"
 
 SUB="${URL%/*}"
 DAT="${URL##*/}"
-SUMS=(MD5SUMS SHA1SUMS SHA256SUMS)
-[ n = "$SHA512" ] || SUMS+=(SHA512SUMS)
+SUMS=()
+for a in MD5SUMS SHA1SUMS SHA256SUMS SHA512SUMS
+do
+	[ n = "${!a}" ] || SUMS+=("$a")
+done
 
 [ -s ~/.prox ] &&
 . ~/.prox
@@ -97,6 +165,8 @@ done
 
 check()
 {
+[ n = "${!1}" ] && return
+
 v x "$2" --check --strict <(fgrep "$DAT" "$1")
 printf '%12s: %s\n' "$1" "$x"
 case "$x" in
@@ -108,8 +178,13 @@ OOPS "$1 fail"
 check MD5SUMS		md5sum
 check SHA1SUMS		sha1sum
 check SHA256SUMS	sha256sum
-[ n = "$SHA512" ] ||
 check SHA512SUMS	sha512sum
 
 SHORT="${BASE##*/}"
-ln -fs "$DAT" "${SHORT//-%s-/-}"
+ln -vfs "$DAT" "${SHORT//-%s-/-}"
+
+o popd >/dev/null
+o printf -v RIGHT "$SHORT" "$VERS"
+o rm -vf "ISO/$RIGHT"
+ln -vfs --relative "DATA/$DIR/$DAT" "ISO/$RIGHT"
+
