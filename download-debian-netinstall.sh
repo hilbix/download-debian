@@ -57,7 +57,7 @@ case "$BRAND" in
 debian*)	KEYS=debian-role-keys.gpg
 		SIGS=sign
 		;;
-*buntu)		KEYS=ubuntu-archive-keyring.gpg
+*buntu*)	KEYS=ubuntu-archive-keyring.gpg
 		SIGS=gpg
 		SHA512SUMS=n
 		;;
