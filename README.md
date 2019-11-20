@@ -22,6 +22,9 @@ Requirements:
   - The script looks for this file also in `keyrings/*/devuan-devs.gpg`
   - Note that downloading keys from websites is **not recommended** and **insecure as hell**.
   - Perhaps see https://unix.stackexchange.com/q/465797 for answers.
+- Alternatively you can do `git submodule update --init` to get a copy of some keyrings I came across.
+  I think they are valid, but please do not trust me alone.  Go verify.
+  How you do verification is up to you (I do not know a good way.  Download from the website and compare is not very secure.)
 
 Then run:
 
@@ -38,12 +41,26 @@ or something like:
 	./download-debian-netinstall.sh ubuntu-server-18.04.2
 	./download-debian-netinstall.sh devuan-jessie-1.0.0
 	./download-debian-netinstall.sh devuan-ascii-2.0.0
+	./download-debian-netinstall.sh devuan-ascii-2.1
 
 There is no autodetection whatsoever.  So you have to adopt to the distro in question:
 
 - Devuan needs the name and version
 - Debian works with the version, but older ones are in debian-archive
 - Ubuntu works with any version, but there is no archive of intermediate versions
+
+Notes:
+
+- Refreshing downloads is supported now.  `wget` then checks timestamps and updates accordingly.
+
+- `DATA/` keeps all the downloaded data
+- `ISO/` receives softlinks to the downloaded `DATA/`.  Softlink `ISO/` where you want the (relative) softlinks to the `.iso`s to show up.
+
+- This script is proxy aware.  To set a proxy do something like this:
+
+	export http_proxy=http://10.0.0.1:3128/
+	export https_proxy=http://10.0.0.1:3128/
+	./download-debian-netinstall.sh
 
 
 ## License
