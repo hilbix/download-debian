@@ -8,7 +8,7 @@ OOPS() { echo "$*" >&2; exit 23; }
 o() { "$@" || OOPS "exec $?: $*"; }
 v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
 
-[ -n "$DEST" ] || read -p $'Examples: 9.9.0:i386 debian-9.9.0 debian-daily debian-weekly debian-archive-9.3.0\nExamples: ubuntu-18.04 kubuntu-18.04 ubuntu-server-18.04\nExamples: devuan-jessie-1.0.0 devuan-ascii-2.0.0\nVersion? ' DEST || exit
+[ -n "$DEST" ] || read -p $'Examples: 9.9.0:i386 debian-9.9.0 debian-daily debian-weekly debian-archive-9.3.0\nExamples: ubuntu-18.04 kubuntu-18.04 ubuntu-server-18.04\nExamples: devuan-jessie-1.0.0 devuan-ascii-2.1\nVersion? ' DEST || exit
 
 VERS="${DEST%:*}"
 DEST="${DEST#"$VERS"}"
@@ -21,6 +21,7 @@ VERS="${VERS#"$BRAND"}"
 
 BRAND="${BRAND%-}"
 
+OLDBASE=
 case "$BRAND" in
 (''|debian)		BASE="http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
 			BRAND=debian
@@ -44,6 +45,7 @@ case "$BRAND" in
 # sadly, devuan is not autodetectable either, so you must give
 # devuan-jessie-1.0.0 or devuan-ascii-2.0.0
 (devuan-*)		BASE="https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+			OLDBASE="https://files.devuan.org/${BRAND/-/_}/installer-iso/old/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
 			BRAND=devuan
 			;;
 (*)			OOPS "unknown brand: $BRAND for version $VERS";;
@@ -92,12 +94,19 @@ case "$BRAND:$VERS" in
 (debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
 esac
 
-case "$BASE" in
-(*%s*%s*)	o printf -v URL "$BASE" "$VERS" "$FIXVERS";;
-(*%s*)		o printf -v URL "$BASE" "$VERS";;
-(*)		URL="$BASE";;
+geturl()
+{
+case "$1" in
+(*%s*%s*)	o printf -v URL "$1" "$VERS" "$FIXVERS";;
+(*%s*)		o printf -v URL "$1" "$VERS";;
+(*)		URL="$1";;
 esac
 
+SUB="${URL%/*}"
+DAT="${URL##*/}"
+}
+
+geturl "$BASE"
 #echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
 
 o cd "$(dirname -- "$0")"
@@ -108,8 +117,6 @@ DIR="$BRAND-$VERS:$ARCH"
 [ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
 o pushd "DATA/$DIR"
 
-SUB="${URL%/*}"
-DAT="${URL##*/}"
 SUMS=()
 for a in MD5SUMS SHA1SUMS SHA256SUMS SHA512SUMS
 do
@@ -119,10 +126,14 @@ done
 [ -s ~/.prox ] &&
 . ~/.prox
 
-for a in "$DAT" "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
+LOOK="$URL"
+wget -N -- "$SUB/$DAT" ||
+{ [ -n "$OLDBASE" ] && geturl "$OLDBASE" && LOOK="$LOOK $URL" && wget -N -- "$SUB/$DAT"; } ||
+OOPS "Download missing, tried $LOOK"
+
+for a in "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
 do
-	[ -s "$a" ] && continue
-	wget -- "$SUB/$a"
+	wget -N -- "$SUB/$a"
 done
 
 # Remove Naziisms from GPG
