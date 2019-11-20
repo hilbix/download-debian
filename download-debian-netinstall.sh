@@ -8,7 +8,19 @@ OOPS() { echo "$*" >&2; exit 23; }
 o() { "$@" || OOPS "exec $?: $*"; }
 v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
 
-[ -n "$DEST" ] || read -p $'Examples: 9.9.0:i386 debian-9.9.0 debian-daily debian-weekly debian-archive-9.3.0\nExamples: ubuntu-18.04 kubuntu-18.04 ubuntu-server-18.04\nExamples: devuan-jessie-1.0.0 devuan-ascii-2.1\nVersion? ' DEST || exit
+EX='
+see also: http://cdimage.debian.org/cdimage/release/
+          http://cdimage.debian.org/cdimage/archive/
+          http://releases.ubuntu.com/
+          http://old-releases.ubuntu.com/releases/
+          http://cdimage.ubuntu.com/
+          https://files.devuan.org/
+
+Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly
+          ubuntu-18.04.1 kubuntu-18.04.1 ubuntu-server-18.04.1
+          devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1
+Version? '
+[ -n "$DEST" ] || read -p "$EX" DEST || exit
 
 VERS="${DEST%:*}"
 DEST="${DEST#"$VERS"}"
@@ -23,29 +35,49 @@ BRAND="${BRAND%-}"
 
 OLDBASE=
 case "$BRAND" in
-(''|debian)		BASE="http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+(''|debian)		BASE=(
+				"http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+				"http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+			)
 			BRAND=debian
 			;;
-(debian-archive)	BASE="http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+(debian-archive)	BASE=(	# now redundant
+				"http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+			)
 			BRAND=debian
 			;;
-(debian-weekly)		BASE="https://cdimage.debian.org/cdimage/weekly-builds/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+(debian-weekly)		BASE=(
+				"https://cdimage.debian.org/cdimage/weekly-builds/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+			)
 			VERS="$(date +%Y.%V)"
 			;;
-(debian-daily)		BASE="https://cdimage.debian.org/cdimage/daily-builds/daily/current/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+(debian-daily)		BASE=(
+				"https://cdimage.debian.org/cdimage/daily-builds/daily/current/$ARCH/iso-cd/debian-testing-$ARCH-netinst.iso"
+			)
 			VERS="$(date +%Y.%m.%d)"
 			;;
-(ubuntu)		BASE="http://releases.ubuntu.com/%s/ubuntu-%s-desktop-$ARCH.iso"
+(ubuntu)		BASE=(
+				"http://releases.ubuntu.com/%s/ubuntu-%s-desktop-$ARCH.iso"
+				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-desktop-$ARCH.iso"
+			)
 			;;
-(*buntu)		BASE="http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-$ARCH.iso"
+(*buntu)		BASE=(
+				"http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-$ARCH.iso"
+			)
 			;;
-(ubuntu-server)		BASE="http://cdimage.ubuntu.com/ubuntu/releases/%s/release/ubuntu-%s-server-$ARCH.iso"
+(ubuntu-server)		BASE=(
+				"http://cdimage.ubuntu.com/ubuntu/releases/%s/release/ubuntu-%s-server-$ARCH.iso"
+				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-server-$ARCH.iso"
 			;;
 # found no way to automate ubuntu-daily, as this has no stable codename
 # sadly, devuan is not autodetectable either, so you must give
 # devuan-jessie-1.0.0 or devuan-ascii-2.0.0
-(devuan-*)		BASE="https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
-			OLDBASE="https://files.devuan.org/${BRAND/-/_}/installer-iso/old/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+(devuan-*)		# WTF are they doing there?
+			BASE=(
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_NETINST.iso"
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/old/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+			)
 			BRAND=devuan
 			;;
 (*)			OOPS "unknown brand: $BRAND for version $VERS";;
@@ -94,21 +126,6 @@ case "$BRAND:$VERS" in
 (debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
 esac
 
-geturl()
-{
-case "$1" in
-(*%s*%s*)	o printf -v URL "$1" "$VERS" "$FIXVERS";;
-(*%s*)		o printf -v URL "$1" "$VERS";;
-(*)		URL="$1";;
-esac
-
-SUB="${URL%/*}"
-DAT="${URL##*/}"
-}
-
-geturl "$BASE"
-#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
-
 o cd "$(dirname -- "$0")"
 o mkdir -pm755 DATA ISO
 
@@ -126,11 +143,28 @@ done
 [ -s ~/.prox ] &&
 . ~/.prox
 
-LOOK="$URL"
-wget -N -- "$SUB/$DAT" ||
-{ [ -n "$OLDBASE" ] && geturl "$OLDBASE" && LOOK="$LOOK $URL" && wget -N -- "$SUB/$DAT"; } ||
-OOPS "Download missing, tried $LOOK"
+findbase()
+{
+LOOK=()
+for try in "${BASE[@]}"
+do
+	case "$try" in
+	(*%s*%s*)	o printf -v URL "$try" "$VERS" "$FIXVERS";;
+	(*%s*)		o printf -v URL "$try" "$VERS";;
+	(*)		URL="$try";;
+	esac
 
+	SUB="${URL%/*}"
+	DAT="${URL##*/}"
+	#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
+
+	LOOK+=("$URL")
+	wget -N -- "$SUB/$DAT" && return
+done
+OOPS "Download missing, tried ${LOOK[*]}"
+}
+
+findbase
 for a in "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
 do
 	wget -N -- "$SUB/$a"
