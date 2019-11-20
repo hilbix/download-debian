@@ -1,0 +1,4 @@
+[submodule "keyrings/hilbix"]
+	path = keyrings/hilbix
+	url = ./
+	branch = keyrings
