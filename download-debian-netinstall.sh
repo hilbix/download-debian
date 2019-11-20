@@ -1,4 +1,5 @@
 #!/bin/bash
+# Public Domain, use at own risk, etc. etc. etc.
 
 DEST="${1%/}"
 DEST="${DEST##*/}"
