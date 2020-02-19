@@ -68,6 +68,7 @@ case "$BRAND" in
 (ubuntu-server)		BASE=(
 				"http://cdimage.ubuntu.com/ubuntu/releases/%s/release/ubuntu-%s-server-$ARCH.iso"
 				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-server-$ARCH.iso"
+			)
 			;;
 # found no way to automate ubuntu-daily, as this has no stable codename
 # sadly, devuan is not autodetectable either, so you must give
