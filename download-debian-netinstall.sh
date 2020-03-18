@@ -14,7 +14,7 @@
 DEST="${1%/}"
 DEST="${DEST##*/}"
 
-OOPS() { echo "$*" >&2; exit 23; }
+OOPS() { for a; do echo "OOPS: $a"; done >&2; exit 23; }
 o() { "$@" || OOPS "exec $?: $*"; }
 v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
 
@@ -31,6 +31,12 @@ Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly
           devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1
 Version? '
 [ -n "$DEST" ] || read -p "$EX" DEST || exit
+
+########################################################################
+########################################################################
+## Find source
+########################################################################
+########################################################################
 
 VERS="${DEST%:*}"
 DEST="${DEST#"$VERS"}"
@@ -125,21 +131,27 @@ case "$VERS" in
 (*)		OOPS "Huh? Version is $VERS";;
 esac
 
+########################################################################
+########################################################################
+## Prepare working environment
+########################################################################
+########################################################################
+
+o cd "$(dirname -- "$0")"
+[ -d ISO ] || OOPS "Directory ISO/ does not exist." "Try: mkdir '$PWD/ISO'" "or:  ln -Tsr \"\$PATH_WHERE_ISOS_SHALL_BE_LINKED_TO\" '$PWD/ISO'"
+o mkdir -pm755 DATA ISO
+
 for a in "/usr/share/keyrings/$KEYS" "/usr/local/share/keyrings/$KEYS" "/etc/keyring/$KEYS" "$HOME/.keyrings/$KEYS" "$HOME/.gnupg/$KEYS" keyrings/*/"$KEYS"
 do
 	[ -s "$a" ] && KEYS="$(readlink -e -- "$a")"
 done
 
-# try: apt-get install debian-keyring ubuntu-keyring devuan-keyring
-[ -f "$KEYS" ] || OOPS missing file: "$KEYS"
+[ -f "$KEYS" ] || OOPS "missing file: $KEYS" "try: sudo apt-get install debian-keyring" "and: apt-get install ubuntu-keyring" "or:  apt-get install devuan-keyring" "or:  cd '$PWD' && git submodule update --init"
 
 FIXVERS="$VERS"
 case "$BRAND:$VERS" in
 (debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
 esac
-
-o cd "$(dirname -- "$0")"
-o mkdir -pm755 DATA ISO
 
 DIR="$BRAND-$VERS:$ARCH"
 
