@@ -38,6 +38,7 @@ case "$BRAND" in
 (''|debian)		BASE=(
 				"http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
 				"http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
+				"https://cdimage.debian.org/mirror/cdimage/archive/%s/$ARCH/jigdo-cd/debian-%s-$ARCH-netinst.jigdo"
 			)
 			BRAND=debian
 			;;
@@ -157,10 +158,11 @@ do
 
 	SUB="${URL%/*}"
 	DAT="${URL##*/}"
+	case "$DAT" in (*.jigdo) DAT="${DAT%.jigdo}.iso";; esac	# jigdo-hack
 	#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
 
 	LOOK+=("$URL")
-	wget -N -- "$SUB/$DAT" && return
+	wget -N -- "$URL" && return
 done
 OOPS "Download missing, tried ${LOOK[*]}"
 }
