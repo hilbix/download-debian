@@ -51,16 +51,23 @@ There is no autodetection whatsoever.  So you have to adopt to the distro in que
 
 Notes:
 
-- Refreshing downloads is supported now.  `wget` then checks timestamps and updates accordingly.
+- Old versions of Debian are now downloaded using `jogdo-lite` as a fallback automatically
+
+- Refreshing/resuming/rechecking downloads is supported.
+  - `wget` then checks timestamps and downloads only changed files.
+  - `jigdo-lite` can also resume broken downloads easily
 
 - `DATA/` keeps all the downloaded data
-- `ISO/` receives softlinks to the downloaded `DATA/`.  Softlink `ISO/` where you want the (relative) softlinks to the `.iso`s to show up.
+- `ISO/` receives softlinks to the downloaded `DATA/`.
+  - Softlink `ISO/` where you want the (relative) softlinks to the `.iso`s to show up.
 
 - This script is proxy aware.  To set a proxy do something like this:
 
 	export http_proxy=http://10.0.0.1:3128/
 	export https_proxy=http://10.0.0.1:3128/
 	./download-debian-netinstall.sh
+
+- You can put the `export`-lines in a file `~/.proxy.conf`
 
 
 ## License
