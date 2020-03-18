@@ -17,6 +17,11 @@ DEST="${DEST##*/}"
 OOPS() { for a; do echo "OOPS: $a"; done >&2; exit 23; }
 o() { "$@" || OOPS "exec $?: $*"; }
 v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
+get() { local -n __var__="$1"; __var__="$(which "$2")" || OOPS "missing $2" "try: sudo apt-get install ${3:-$2}"; }
+
+get WGET	wget
+get GPG		gpg
+# assume that following are always installed: grep fgrep readlink rm ln
 
 EX='
 see also: http://cdimage.debian.org/cdimage/release/
@@ -166,6 +171,13 @@ done
 
 [ -s "$HOME/.proxy.conf" ] && . "$HOME/.proxy.conf"
 
+########################################################################
+########################################################################
+## Helper routines
+########################################################################
+########################################################################
+
+# URL="$SUB/$DAT" but see jigdo() below
 findbase()
 {
 LOOK=()
@@ -179,20 +191,30 @@ do
 
 	SUB="${URL%/*}"
 	DAT="${URL##*/}"
-	case "$DAT" in (*.jigdo) DAT="${DAT%.jigdo}.iso";; esac	# jigdo-hack
 	#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
 
 	LOOK+=("$URL")
-	wget -N -- "$URL" && return
+	"$WGET" -N -- "$URL" && return
 done
 OOPS "Download missing, tried ${LOOK[*]}"
 }
 
-findbase
-for a in "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
-do
-	wget -N -- "$SUB/$a"
-done
+# URL="$SUB/${DAT%.iso}.jigdo" iff using jigdo
+# so DAT is the .iso
+# and URL is the jigdo URL
+jigdo()
+{
+case "$DAT" in
+(*.jigdo)	;;
+(*)		return;;
+esac
+
+DAT="${DAT%.jigdo}.iso"
+[ -s "$DAT" ] && return
+
+get JIGDO jigdo-lite jigdo-file
+o "$JIGDO" --noask "$URL"
+}
 
 # Remove Naziisms from GPG
 denazify()
@@ -225,31 +247,50 @@ grep -v '^Primary key fingerprint: [0-9A-F ]*$' |
 grep '[^[:space:]]'
 }
 
+check()
+{
+[ n = "${!1}" ] && return
+
+v d fgrep "$DAT" "$1"
+get checker "$2" coreutils
+v x "$checker" --check --strict <<<"$d"
+printf '%12s: %s\n' "$1" "$x"
+case "$x" in
+(*": OK")	return;;
+esac
+OOPS "$1 mismatch" "(perhaps remove $PWD and try again)"
+}
+
+########################################################################
+########################################################################
+## Now do the real work
+########################################################################
+########################################################################
+
+# Download
+findbase
+jigdo
+for a in "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
+do
+	"$WGET" -N -- "$SUB/$a"
+done
+
+# Verify checksums are authentic (signed)
 # See https://stackoverflow.com/a/35820272
 for a in "${SUMS[@]}"
 do
 	printf '%12s: ' "$a"
 	[ sign = "$SIGS" ] || [ -L "$a.sign" ] || o ln -s "$a.$SIGS" "$a.sign"
-	o denazify gpg --no-default-keyring --keyring "$KEYS" --verify "$a.sign"
+	o denazify "$GPG" --no-default-keyring --keyring "$KEYS" --verify "$a.sign"
 done
 
-check()
-{
-[ n = "${!1}" ] && return
-
-v x "$2" --check --strict <(fgrep "$DAT" "$1")
-printf '%12s: %s\n' "$1" "$x"
-case "$x" in
-(*": OK")	return;;
-esac
-OOPS "$1 fail"
-}
-
+# Verify download with checkusm
 check MD5SUMS		md5sum
 check SHA1SUMS		sha1sum
 check SHA256SUMS	sha256sum
 check SHA512SUMS	sha512sum
 
+# Create predictable easy to use softlinks
 SHORT="${BASE##*/}"
 ln -vfs "$DAT" "${SHORT//-%s-/-}"
 
