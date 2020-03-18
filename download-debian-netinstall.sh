@@ -1,5 +1,15 @@
 #!/bin/bash
 # Public Domain, use at own risk, etc. etc. etc.
+#
+# Example ~/.proxy.conf (defines how to use a local proxy):
+#
+# PROX=192.168.0.80
+# PORT=8080
+#
+# export http_proxy=http://$PROX:$PORT/
+# export https_proxy=http://$PROX:$PORT/
+#
+# export MAVEN_OPTS="-Dhttp.proxyHost=$PROX -Dhttp.proxyPort=$PORT -Dhttps.proxyHost=$PROX -Dhttps.proxyPort=$PORT -DproxyHost=$PROX -DproxyPort=$PORT"
 
 DEST="${1%/}"
 DEST="${DEST##*/}"
@@ -142,8 +152,7 @@ do
 	[ n = "${!a}" ] || SUMS+=("$a")
 done
 
-[ -s ~/.prox ] &&
-. ~/.prox
+[ -s "$HOME/.proxy.conf" ] && . "$HOME/.proxy.conf"
 
 findbase()
 {
