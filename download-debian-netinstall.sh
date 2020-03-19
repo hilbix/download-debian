@@ -143,15 +143,9 @@ esac
 ########################################################################
 
 o cd "$(dirname -- "$0")"
-[ -d ISO ] || OOPS "Directory ISO/ does not exist." "Try: mkdir '$PWD/ISO'" "or:  ln -Tsr \"\$PATH_WHERE_ISOS_SHALL_BE_LINKED_TO\" '$PWD/ISO'"
+HERE="$PWD"
+[ -d ISO ] || OOPS "Directory ISO/ does not exist." "Try: mkdir '$HERE/ISO'" "or:  ln -Tsr \"\$PATH_WHERE_ISOS_SHALL_BE_LINKED_TO\" '$HERE/ISO'"
 o mkdir -pm755 DATA ISO
-
-for a in "/usr/share/keyrings/$KEYS" "/usr/local/share/keyrings/$KEYS" "/etc/keyring/$KEYS" "$HOME/.keyrings/$KEYS" "$HOME/.gnupg/$KEYS" keyrings/*/"$KEYS"
-do
-	[ -s "$a" ] && KEYS="$(readlink -e -- "$a")"
-done
-
-[ -f "$KEYS" ] || OOPS "missing file: $KEYS" "try: sudo apt-get install debian-keyring" "and: apt-get install ubuntu-keyring" "or:  apt-get install devuan-keyring" "or:  cd '$PWD' && git submodule update --init"
 
 FIXVERS="$VERS"
 case "$BRAND:$VERS" in
@@ -159,6 +153,17 @@ case "$BRAND:$VERS" in
 esac
 
 DIR="$BRAND-$VERS:$ARCH"
+
+for a in "/usr/share/keyrings/$KEYS" "/usr/local/share/keyrings/$KEYS" "/etc/keyring/$KEYS" "$HOME/.keyrings/$KEYS" "$HOME/.gnupg/$KEYS" keyrings/*/"$KEYS" "keyrings/.$DIR/$KEYS"
+do
+	[ -s "$a" ] && KEYS="$(readlink -e -- "$a")"
+done
+
+HINT="cd '$HERE' && git submodule update --init"
+[ -f "$KEYS" ] || OOPS "missing file: $KEYS" "try: sudo apt-get install debian-keyring" "and: apt-get install ubuntu-keyring" "or:  apt-get install devuan-keyring" "or if you trust me and this git repo:" "do:  $HINT"
+
+[ -d keyrings/hilbix ] && HINT="'$HERE/keyrings/hilbix/find.sh' '${KEYS##*/}' '$HERE/DATA/$DIR'"
+[ -d "keyrings/hilbix/$DIR"] && HINT="ln -s 'hilbix/$DIR' '$HERE/keyrings/.$DIR'"
 
 [ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
 o pushd "DATA/$DIR"
@@ -232,7 +237,7 @@ grep -v "^gpg: assuming signed data in '[^']*'\$" |
 grep -v '^gpg: Signature made ' |
 
 # Nope, and leave me alone with any ethnical statements, too
-grep -v '^gpg:                using RSA key [0-9A-F]*$' |
+grep -v '^gpg:                using [RD]SA key [0-9A-F]*$' |
 
 # Nope, also please leave me alone with your trust in being the only worthy superrace
 grep -v '^gpg: WARNING: This key is not certified with a trusted signature!' |
@@ -281,7 +286,8 @@ for a in "${SUMS[@]}"
 do
 	printf '%12s: ' "$a"
 	[ sign = "$SIGS" ] || [ -L "$a.sign" ] || o ln -s "$a.$SIGS" "$a.sign"
-	o denazify "$GPG" --no-default-keyring --keyring "$KEYS" --verify "$a.sign"
+	( o denazify "$GPG" --no-default-keyring --keyring "$KEYS" --verify "$a.sign" ) ||
+	OOPS "verify failure for $a using key $KEYS" "try to find the right key and copy it to $HERE/keyrings/.$DIR/${KEYS##*/}" "alternatively if you trust me and the git repo and the key happens to be there:" "$HINT"
 done
 
 # Verify download with checkusm
