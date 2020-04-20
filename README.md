@@ -63,9 +63,11 @@ Notes:
 
 - This script is proxy aware.  To set a proxy do something like this:
 
-	export http_proxy=http://10.0.0.1:3128/
-	export https_proxy=http://10.0.0.1:3128/
-	./download-debian-netinstall.sh
+  ```
+  export http_proxy=http://10.0.0.1:3128/
+  export https_proxy=http://10.0.0.1:3128/
+  ./download-debian-netinstall.sh
+  ```
 
 - You can put the `export`-lines in a file `~/.proxy.conf`
 
