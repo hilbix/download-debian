@@ -54,7 +54,11 @@ VERS="${VERS#"$BRAND"}"
 
 BRAND="${BRAND%-}"
 
-OLDBASE=
+release=release
+case "$VERS" in
+*-beta)	release=beta;;
+esac
+
 case "$BRAND" in
 (''|debian)		BASE=(
 				"http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
@@ -84,11 +88,11 @@ case "$BRAND" in
 			)
 			;;
 (*buntu)		BASE=(
-				"http://cdimage.ubuntu.com/$BRAND/releases/%s/release/$BRAND-%s-desktop-$ARCH.iso"
+				"http://cdimage.ubuntu.com/$BRAND/releases/%s/$release/$BRAND-%s-desktop-$ARCH.iso"
 			)
 			;;
 (ubuntu-server)		BASE=(
-				"http://cdimage.ubuntu.com/ubuntu/releases/%s/release/ubuntu-%s-server-$ARCH.iso"
+				"http://cdimage.ubuntu.com/ubuntu/releases/%s/$release/ubuntu-%s-server-$ARCH.iso"
 				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-server-$ARCH.iso"
 			)
 			;;
@@ -128,6 +132,12 @@ debian*)	KEYS=debian-role-keys.gpg
 (*)		OOPS "unknown brand: $BRAND for version $VERS";;
 esac
 
+FIXVERS="$VERS"
+case "$BRAND:$VERS" in
+(debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
+(*buntu*:*-beta)	FIXVERS="$VERS"; VERS="${VERS%-beta}";;
+esac
+
 case "$VERS" in
 (*[^0-9._r]*)	OOPS "Huh? Version is $VERS";;
 ([1-4].[0-9]_r[0-9])	;;
@@ -146,11 +156,6 @@ o cd "$(dirname -- "$0")"
 HERE="$PWD"
 [ -d ISO ] || OOPS "Directory ISO/ does not exist." "Try: mkdir '$HERE/ISO'" "or:  ln -Tsr \"\$PATH_WHERE_ISOS_SHALL_BE_LINKED_TO\" '$HERE/ISO'"
 o mkdir -pm755 DATA ISO
-
-FIXVERS="$VERS"
-case "$BRAND:$VERS" in
-(debian:[1-5].*)	FIXVERS="${VERS//[._]/}";;
-esac
 
 DIR="$BRAND-$VERS:$ARCH"
 
