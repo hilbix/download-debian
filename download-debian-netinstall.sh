@@ -168,7 +168,7 @@ HINT="cd '$HERE' && git submodule update --init"
 [ -f "$KEYS" ] || OOPS "missing file: $KEYS" "try: sudo apt-get install debian-keyring" "and: apt-get install ubuntu-keyring" "or:  apt-get install devuan-keyring" "or if you trust me and this git repo:" "do:  $HINT"
 
 [ -d keyrings/hilbix ] && HINT="'$HERE/keyrings/hilbix/find.sh' '${KEYS##*/}' '$HERE/DATA/$DIR'"
-[ -d "keyrings/hilbix/$DIR"] && HINT="ln -s 'hilbix/$DIR' '$HERE/keyrings/.$DIR'"
+[ -d "keyrings/hilbix/$DIR" ] && HINT="ln -s 'hilbix/$DIR' '$HERE/keyrings/.$DIR'"
 
 [ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
 o pushd "DATA/$DIR"
