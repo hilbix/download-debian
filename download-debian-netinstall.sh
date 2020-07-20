@@ -159,15 +159,17 @@ o mkdir -pm755 DATA ISO
 
 DIR="$BRAND-$VERS:$ARCH"
 
-for a in "/usr/share/keyrings/$KEYS" "/usr/local/share/keyrings/$KEYS" "/etc/keyring/$KEYS" "$HOME/.keyrings/$KEYS" "$HOME/.gnupg/$KEYS" keyrings/*/"$KEYS" "keyrings/.$DIR/$KEYS"
+RINGS=()
+for a in /usr/share/keyrings /usr/local/share/keyrings /etc/keyring* "$HOME/.keyrings" "$HOME/.gnupg" keyrings/* "keyrings/.$DIR"
 do
-	[ -s "$a" ] && KEYS="$(readlink -e -- "$a")"
+	for b in "$a"/*.gpg
+	do
+		[ -s "$b" ] && RINGS+=(--keyring "$(readlink -e -- "$b")")
+	done
 done
 
 HINT="cd '$HERE' && git submodule update --init"
-[ -f "$KEYS" ] || OOPS "missing file: $KEYS" "try: sudo apt-get install debian-keyring" "and: apt-get install ubuntu-keyring" "or:  apt-get install devuan-keyring" "or if you trust me and this git repo:" "do:  $HINT"
-
-[ -d keyrings/hilbix ] && HINT="'$HERE/keyrings/hilbix/find.sh' '${KEYS##*/}' '$HERE/DATA/$DIR'"
+[ -d keyrings/hilbix ] && HINT="'$HERE/keyrings/hilbix/find.sh' '$HERE/DATA/$DIR'"
 [ -d "keyrings/hilbix/$DIR" ] && HINT="ln -s 'hilbix/$DIR' '$HERE/keyrings/.$DIR'"
 
 [ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
@@ -263,6 +265,7 @@ check()
 
 v d fgrep "$DAT" "$1"
 get checker "$2" coreutils
+printf 'chk %s\r' "$1"
 v x "$checker" --check --strict <<<"$d"
 printf '%12s: %s\n' "$1" "$x"
 case "$x" in
@@ -291,8 +294,8 @@ for a in "${SUMS[@]}"
 do
 	printf '%12s: ' "$a"
 	[ sign = "$SIGS" ] || [ -L "$a.sign" ] || o ln -s "$a.$SIGS" "$a.sign"
-	( o denazify "$GPG" --no-default-keyring --keyring "$KEYS" --verify "$a.sign" ) ||
-	OOPS "verify failure for $a using key $KEYS" "try to find the right key and copy it to $HERE/keyrings/.$DIR/${KEYS##*/}" "alternatively if you trust me and the git repo and the key happens to be there:" "$HINT"
+	( o denazify "$GPG" --no-default-keyring "${RINGS[@]}" --verify "$a.sign" ) ||
+	OOPS "verify failure for $a - the missing key is probably named $KEYS" "try to find the right key and copy it to $HERE/keyrings/.$DIR/" "or, if you trust me and the git repo and the key happens to be there:" "$HINT"
 done
 
 # Verify download with checkusm
