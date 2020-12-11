@@ -122,6 +122,8 @@ debian*)	KEYS=debian-role-keys.gpg
 *buntu*)	KEYS=ubuntu-archive-keyring.gpg
 		SIGS=gpg
 		SHA512SUMS=n
+		MD5SUMS=n		# WTF why?  suddenly those disappeared
+		SHA1SUMS=n		# WTF why?  suddenly those disappeared
 		;;
 (devuan)	KEYS=devuan-devs.gpg
 		SIGS=asc
