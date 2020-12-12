@@ -1,4 +1,3 @@
 [submodule "keyrings/hilbix"]
 	path = keyrings/hilbix
-	url = ./
-	branch = keyrings
+	url = https://github.com/hilbix/download-debian-keys.git
