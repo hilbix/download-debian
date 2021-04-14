@@ -59,6 +59,7 @@ case "$VERS" in
 *-beta)	release=beta;;
 esac
 
+NOTE=()
 case "$BRAND" in
 (''|debian)		BASE=(
 				"http://cdimage.debian.org/cdimage/release/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
@@ -91,10 +92,20 @@ case "$BRAND" in
 				"http://cdimage.ubuntu.com/$BRAND/releases/%s/$release/$BRAND-%s-desktop-$ARCH.iso"
 			)
 			;;
-(ubuntu-server)		BASE=(
-				"http://cdimage.ubuntu.com/ubuntu/releases/%s/$release/ubuntu-%s-server-$ARCH.iso"
-				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-server-$ARCH.iso"
+(ubuntu-*server)	VARIANT="${BRAND#*-}"
+			BASE=(
+				"http://releases.ubuntu.com/%s/ubuntu-%s-$VARIANT-$ARCH.iso"
+				"http://cdimage.ubuntu.com/ubuntu/releases/%s/$release/ubuntu-%s-$VARIANT-$ARCH.iso"
+				"http://old-releases.ubuntu.com/releases/%s/ubuntu-%s-$VARIANT-$ARCH.iso"
 			)
+			# WTF why is this shit needed since 20.04?
+			case "$VARIANT-$VERS" in
+			(server-2*)
+				NOTE=(	""
+					"Hint: Try ubuntu-live-server"
+					"For unknown reason, ubuntu-server is missing for 20.x and later"
+					"");;
+			esac
 			;;
 # found no way to automate ubuntu-daily, as this has no stable codename
 # sadly, devuan is not autodetectable either, so you must give
@@ -210,7 +221,7 @@ do
 	LOOK+=("$URL")
 	"$WGET" -N -- "$URL" && return
 done
-OOPS "Download missing, tried ${LOOK[*]}"
+OOPS "Download missing, tried ${LOOK[*]}" "${NOTE[@]}"
 }
 
 # URL="$SUB/${DAT%.iso}.jigdo" iff using jigdo
