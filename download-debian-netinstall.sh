@@ -188,7 +188,7 @@ for a in /usr/share/keyrings /usr/local/share/keyrings /etc/keyring* "$HOME/.key
 do
 	for b in "$a"/*.gpg
 	do
-		[ -s "$b" ] && RINGS+=(--keyring "$(readlink -e -- "$b")")
+		[ -s "$b" ] && RINGS+=("$(readlink -e -- "$b")")
 	done
 done
 
@@ -197,7 +197,7 @@ HINT="cd '$HERE' && git submodule update --init"
 [ -d "keyrings/hilbix/$DIR" ] && HINT="ln -s 'hilbix/$DIR' '$HERE/keyrings/.$DIR'"
 
 [ -d "DATA/$DIR" ] || o mkdir "DATA/$DIR"
-o pushd "DATA/$DIR"
+o pushd "DATA/$DIR" >/dev/null;
 
 SUMS=()
 for a in MD5SUMS SHA1SUMS SHA256SUMS SHA512SUMS
@@ -212,6 +212,109 @@ done
 ## Helper routines
 ########################################################################
 ########################################################################
+
+# /bin/cp is completely borken as well.
+#
+# It contains a bug, that certain files with a read error at position 0
+# are reported SUCCESSFULLY COPIED with 0 bytes even if the copy failed.
+# EOF is not verified by /bin/cp and, thanks to POSIX, kernels are allowed
+# to return EOF instead of write errors at certain poings.  cp falls into this trap.
+# Another problem is, that you cannot prevent it to copy softlinks as softlinks these days.
+# But the probably most annoying thing is what happens if cp is interrupted
+# (always think of a sudden power outage) which leaves us clueless with all pieces.
+#
+# So always first copy to a TMP file and then do some atomic replace.
+# For a sane implementation of copy, I expect that it does a "cmp" first,
+# hence skip writes (which might degrade an SSD) if all possible.
+#
+# Following is not a correct implementation.  But it suffices here.
+safecp()
+{
+  x cmp -s -- "$1" "$2" && return;	# first: compare
+  printf 'copying existing %q\n' "$2"
+  x rm -f -- "$2.tmp";			# Use tmpfile here.  I am lazy as this is ok here
+  o cp -f -- "$1" "$2.tmp";		# copy to tmpfile
+  o mv -f -- "$2.tmp" "$2";		# hopefully this does an atomical rename()
+}
+
+# WGET is a complete desaster in case it is interrupted for some reason
+# Like power outage, kill or ^C.
+# Hence we are not allowed to write things directly into the directory.
+# Why are standard tools always constructed such badly that they do
+# maximum harm in case something does not work as expected, instead
+# being done conservatively, such that they never cause grieve?
+#
+# Why not use "curl"?  jigdo uses wget.
+# So we already have wget while curl is not neccessarily installed.
+#
+# Note that this also exposes an wget bug:
+# -N does not work as advertised.
+# We have a successful download,
+# and wget tells
+#	The file is already fully retrieved; nothing to do.
+# but forgets to update the file's timestamp.
+# Hello?  Anybody out there?  Any intelligent being?
+#
+# I leave it as-is.
+# Sorry for the ancient timestamps then
+# if you download it a second time.
+# Not my fault.
+download()
+{
+local FILE="${1##*/}"
+
+# Do the download in a temporary folder
+[ -d tmp ] || mkdir tmp;
+o pushd tmp >/dev/null;
+
+# Take advantage of some existing file.
+#
+# What we want is to:
+# - Detect, if a download is present or not
+# - Send "range" requests to continue borken downloads
+# - Use timestamps of the server
+# - And do not download anything when everything already is in place
+# (So the most useful and common application of a download.)
+# Hence we need -c and -N.
+#
+# But option -N is a complete desaster in wget,
+# as this is not doing timestamping alone, it does timestamp checking, too.
+# Something we definitively do not want.  Ever!
+#
+# Due to this grave misimplementation (doing to things in combination instead of only a single thing),
+# we cannot use -r nor --no-if-modified-since (we do not want HEAD) nor -O either.
+# WTF!?! This is not only a PITA, this is plain shit!
+#
+# BTW: I refer to documentation here.  If documentation says, it does HEAD, but it doesn't,
+# I really have no idea what future brings.  I always use documentation first, implement second.
+# Hence if documentation is wrong I must assume that implementation is or becomes wrong, too.
+# And if implementation is right, this is just an accident.
+#
+# So better be safe than sorry and work around all bugs, regardless if they are in documentation or implementation.
+# Read: Use some way that just works and contains all desireable properties (see above).
+#
+# If wget would have been implemented properly from the beginning
+# we do not need all this copying around here
+# nor the need to re-invent a wheel with 2 additional corners.
+[ -s "../$FILE" ] && [ ! -s "$FILE" ] && o safecp "../$FILE" "$FILE";
+
+# Timezone is something similar.  Why doesn't everything rely on UTC first
+# and only some obscure presentation layer transfers this into local time?
+# As it DOES rely on UTC internally, but tools do not expose that, causing
+# a lot of grief over the last and all coming centuries!
+#
+# Touch existing file into the stone age to make wget -Nc work
+[ -f "$FILE" ] && TZ=UTC o touch -t 198001010000 "$FILE";
+
+"$WGET" -N -c -- "$1" &&
+o mv -f "$FILE" ..;		# file successfully downloaded and timestamped
+
+i o popd >/dev/null;
+# It is expected that some things stay in tmp, like jigdo things.
+i x rmdir tmp 2>/dev/null;
+
+# FYI this here has return value of wget, see "i" above
+}
 
 # URL="$SUB/$DAT" but see jigdo() below
 findbase()
@@ -230,7 +333,7 @@ do
 	#echo "$BRAND -- $ARCH -- $VERS -- $FIXVERS - $URL"; exit 1
 
 	LOOK+=("$URL")
-	"$WGET" -N -- "$URL" && return
+	download "$URL" && return
 done
 OOPS "Download missing, tried ${LOOK[*]}" "${NOTE[@]}"
 }
@@ -240,59 +343,108 @@ OOPS "Download missing, tried ${LOOK[*]}" "${NOTE[@]}"
 # and URL is the jigdo URL
 jigdo()
 {
+local JIG="$DAT"
+
 case "$DAT" in
 (*.jigdo)	;;
 (*)		return;;
 esac
 
 DAT="${DAT%.jigdo}.iso"
-[ -s "$DAT" ] && return
+[ -s "$DAT" ] && o printf 'using existing file %q\n' "$DAT" && return;
 
 get JIGDO jigdo-lite jigdo-file
+
+[ -d tmp ] || mkdir tmp;
+o pushd tmp >/dev/null;
+o safecp "../$JIG" "$JIG";	# do not re-download .jigdo
+
+# What can possibly go wrong here when using jigdo?
+#
+# jigdo is able to recover if someting goes wrong, right?
+# Wrong!  jigdo --noask enters an ENDLESS LOOP in case
+# /etc/apt/sources.list is empty or missing
+# and no ~/.jigdo-lite is present, to.
+# Well done, folks, BCP on system level makes breaks userland tools.
+#
+# Sadly, I cannot do anything about that except leaving away --noask,
+# but we definitively do not want to run without.  Shit in, shit out.
+#
+# Sadly, --scan cannot be used as this needs a MOUNTED .iso.  WTF WHY?
+# We are able to CREATE some image but are not able to REUSE it?
+# (Note that rsync supports such scans, why not jigdo?)
+#
+# Also, in case the $DAT is already present, we need to remove it here.
+# As jigdo-lite has no way to give --force to jigdo-file by chance.
+# (it can be hacked into ~/.jigdo-lite, but this is not a valid offer.)
+o rm -f "$DAT"
 o "$JIGDO" --noask "$URL"
+o mv -f "$DAT" ..
+
+o popd >/dev/null;
+x rmdir tmp 2>/dev/null;
 }
 
 # Remove Naziisms from GPG
-denazify()
+# and add a brain to escape all those GPG defects.
+#
+# How unusable can a software possibly be written?
+# And the winner is .. gpg!
+# It's even far worse than OpenSSL!
+# Do they ever use their own piece of software for some real thing?
+# Or was it just written to drive people away from Crypto?
+# For the latter:  It does a very effective job!  Yay!
+denazify-and-add-a-brain-to-gpg-verify()
 {
-local murx
+local murx ring
 
-murx="$(LC_ALL=C.UTF-8 "$@" 2>&1)" || { local e=$?; echo "$murx"; return $e; }
+# As GPG crashes on the first minimal thing, we cannot give it a list of keyrings.
+# So we have to use a tiny loop here.
+for ring in "${RINGS[@]}";
+do
+	murx="$(LC_ALL=C.UTF-8 "$GPG" --no-default-keyring --keyring "$ring" --verify "$1" 2>&1)" || continue;
 
-echo "$murx" |
+	echo "$murx" |
 
-# Nope, we do not want to hear any racial propaganda
-grep -v "^gpg: assuming signed data in '[^']*'\$" |
+	# Nope, we do not want to hear any racial propaganda
+	grep -v "^gpg: assuming signed data in '[^']*'\$" |
 
-# Nope, I am also not interested on obscure historic evidence made up
-grep -v '^gpg: Signature made ' |
+	# Nope, I am also not interested on obscure historic evidence made up
+	grep -v '^gpg: Signature made ' |
 
-# Nope, and leave me alone with any ethnical statements, too
-grep -v '^gpg:                using [RD]SA key [0-9A-F]*$' |
+	# Nope, and leave me alone with any ethnical statements, too
+	grep -v '^gpg:                using [RD]SA key [0-9A-F]*$' |
 
-# Nope, also please leave me alone with your trust in being the only worthy superrace
-grep -v '^gpg: WARNING: This key is not certified with a trusted signature!' |
+	# Nope, also please leave me alone with your trust in being the only worthy superrace
+	grep -v '^gpg: WARNING: This key is not certified with a trusted signature!' |
 
-# Nope, and please do not even think about blaming the Jews!
-grep -v '^gpg:          There is no indication that the signature belongs to the owner.' |
+	# Nope, and please do not even think about blaming the Jews!
+	grep -v '^gpg:          There is no indication that the signature belongs to the owner.' |
 
-# Nope, I really cannot stand anymore to hear you talking about right and order!
-grep -v '^Primary key fingerprint: [0-9A-F ]*$' |
+	# Nope, I really cannot stand anymore to hear you talking about right and order!
+	grep -v '^Primary key fingerprint: [0-9A-F ]*$' |
 
-# Instead, we want to live long and prosper
-grep '[^[:space:]]'
+	# Instead, we want to live long and prosper
+	grep '[^[:space:]]'
+
+	return
+done
+return 1;
 }
 
 check()
 {
+local res dat checker
+
 [ n = "${!1}" ] && return
 
-v d fgrep "$DAT" "$1"
+o v dat fgrep "$DAT" "$1"
+[ -n "$dat" ] || OOPS "$1 does not contain checksum for $DAT"
 get checker "$2" coreutils
 printf 'chk %s\r' "$1"
-v x "$checker" --check --strict <<<"$d"
-printf '%12s: %s\n' "$1" "$x"
-case "$x" in
+x v res "$checker" --check --strict <<<"$dat" &&
+printf '%12s: %s\n' "$1" "$res" &&
+case "$res" in
 (*": OK")	return;;
 esac
 OOPS "$1 mismatch" "(perhaps remove $PWD and try again)"
@@ -309,7 +461,7 @@ findbase
 jigdo
 for a in "${SUMS[@]}" "${SUMS[@]/%/.$SIGS}"
 do
-	"$WGET" -N -- "$SUB/$a"
+	[ -s "$a" ] && o printf 'using existing file instead of %q\n' "$SUB/$a" || download "$SUB/$a"
 done
 
 # Verify checksums are authentic (signed)
@@ -318,7 +470,7 @@ for a in "${SUMS[@]}"
 do
 	printf '%12s: ' "$a"
 	[ sign = "$SIGS" ] || [ -L "$a.sign" ] || o ln -s "$a.$SIGS" "$a.sign"
-	( o denazify "$GPG" --no-default-keyring "${RINGS[@]}" --verify "$a.sign" ) ||
+	( o denazify-and-add-a-brain-to-gpg-verify "$a.sign" ) ||
 	OOPS "verify failure for $a - the missing key is probably named $KEYS" "try to find the right key and copy it to $HERE/keyrings/.$DIR/" "or, if you trust me and the git repo and the key happens to be there:" "$HINT"
 done
 
