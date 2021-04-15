@@ -15,9 +15,11 @@ DEST="${1%/}"
 DEST="${DEST##*/}"
 
 OOPS() { for a; do echo "OOPS: $a"; done >&2; exit 23; }
+x() { "$@"; }
+i() { local e=$?; "$@"; return $e; }
 o() { "$@" || OOPS "exec $?: $*"; }
-v() { local -n __var__="$1"; __var__="$("${@:2}")" || OOPS "exec $?: $*"; }
-get() { local -n __var__="$1"; __var__="$(which "$2")" || OOPS "missing $2" "try: sudo apt-get install ${3:-$2}"; }
+v() { local -n __var__="$1"; __var__="$("${@:2}")"; }
+get() { v "$1" which -- "$2" || OOPS "missing $2" "try: sudo apt-get install ${3:-$2}"; }
 
 get WGET	wget
 get GPG		gpg
