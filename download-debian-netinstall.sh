@@ -108,15 +108,24 @@ case "$BRAND" in
 			esac
 			;;
 # found no way to automate ubuntu-daily, as this has no stable codename
-# sadly, devuan is not autodetectable either, so you must give
-# devuan-jessie-1.0.0 or devuan-ascii-2.0.0
+
+# This currently only allows to download the netinstall variant of Devuan
+# as files.devuan.org is far too volatile for my taste.
+# Sadly, Devuan is not autodetectable either, so you must give
+# devuan-jessie-1.0.0
+# devuan-ascii-2.0.0
+# devuan-ascii-2.1
+# devuan-beowulf-3.1.1
+# I really have no idea what happened to ISOs of 3.0.0 and 3.1.0.
+# Also: They seem to rename the netinstall.iso for EACH release.
+# And they renamed the "old" sub-folder into some top level "archive" folder.
 (devuan-*)		# WTF are they doing there?
 			BASE=(
-				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
-				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_NETINST.iso"
-				"https://files.devuan.org/${BRAND/-/_}/installer-iso/old/${BRAND/-/_}_%s_${ARCH}_netinst.iso"
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinstall.iso"	# 3.1.1
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso"	# 2.1
+				"https://files.devuan.org/archive/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_netinst.iso" # 2.0.0
+				"https://files.devuan.org/${BRAND/-/_}/installer-iso/${BRAND/-/_}_%s_${ARCH}_NETINST.iso"	# 1.0.0
 			)
-			BRAND=devuan
 			;;
 (*)			OOPS "unknown brand: $BRAND for version $VERS";;
 esac
@@ -136,7 +145,7 @@ debian*)	KEYS=debian-role-keys.gpg
 		MD5SUMS=n		# WTF why?  suddenly those disappeared
 		SHA1SUMS=n		# WTF why?  suddenly those disappeared
 		;;
-(devuan)	KEYS=devuan-devs.gpg
+(devuan*)	KEYS=devuan-devs.gpg
 		SIGS=asc
 		MD5SUMS=n
 		SHA1SUMS=n
@@ -319,6 +328,7 @@ check SHA512SUMS	sha512sum
 
 # Create predictable easy to use softlinks
 SHORT="${BASE##*/}"
+SHORT="${SHORT//_/-}"
 ln -vfs "$DAT" "${SHORT//-%s-/-}"
 
 o popd >/dev/null
