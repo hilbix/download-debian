@@ -34,20 +34,24 @@ or something like:
 
 	./download-debian-netinstall.sh debian-daily
 	./download-debian-netinstall.sh debian-weekly
-	./download-debian-netinstall.sh debian-10.0.0
+	./download-debian-netinstall.sh debian-11.1.0
 	./download-debian-netinstall.sh debian-archive-9.9.0
 	./download-debian-netinstall.sh debian-archive-9.9.0:i386
 	./download-debian-netinstall.sh kubuntu-18.04.1
+	./download-debian-netinstall.sh ubuntu-20.04.3
 	./download-debian-netinstall.sh ubuntu-server-18.04.2
+	./download-debian-netinstall.sh ubuntu-live-server-20.04
 	./download-debian-netinstall.sh devuan-jessie-1.0.0
 	./download-debian-netinstall.sh devuan-ascii-2.0.0
 	./download-debian-netinstall.sh devuan-ascii-2.1
+	./download-debian-netinstall.sh devuan-beowulf-3.1.1
 
 There is no autodetection whatsoever.  So you have to adopt to the distro in question:
 
 - Devuan needs the name and version
 - Debian works with the version, but older ones are in debian-archive
 - Ubuntu works with any version, but there is no archive of intermediate versions
+- And you must give the versions in full, as they are named in the download
 
 Notes:
 
