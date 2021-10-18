@@ -140,6 +140,8 @@ SHA512SUMS=y
 case "$BRAND" in
 debian*)	KEYS=debian-role-keys.gpg
 		SIGS=sign
+		MD5SUMS=n		# WTF why?  suddenly those disappeared
+		SHA1SUMS=n		# WTF why?  suddenly those disappeared
 		;;
 *buntu*)	KEYS=ubuntu-archive-keyring.gpg
 		SIGS=gpg
