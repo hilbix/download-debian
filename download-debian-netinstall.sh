@@ -28,12 +28,14 @@ get GPG		gpg
 EX='
 see also: http://cdimage.debian.org/cdimage/release/
           http://cdimage.debian.org/cdimage/archive/
+          http://cdimage.debian.org/cdimage/openstack/
+          http://cdimage.debian.org/cdimage/openstack/archive/
           http://releases.ubuntu.com/
           http://old-releases.ubuntu.com/releases/
           http://cdimage.ubuntu.com/
           https://files.devuan.org/
 
-Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly
+Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly debian-openstack-11
           ubuntu-18.04.1 kubuntu-18.04.1 ubuntu-server-18.04.1
           devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1
 Version? '
@@ -69,6 +71,12 @@ case "$BRAND" in
 				"https://cdimage.debian.org/mirror/cdimage/archive/%s/$ARCH/jigdo-cd/debian-%s-$ARCH-netinst.jigdo"
 			)
 			BRAND=debian
+			;;
+(debian-openstack)	BASE=(
+				"http://cdimage.debian.org/cdimage/openstack/current-%s/debian-%s-openstack-${ARCH}.qcow2"
+				"http://cdimage.debian.org/cdimage/openstack/archive/%s/debian-%s-openstack-${ARCH}.qcow2"
+			)
+			BRAND=debian-openstack
 			;;
 (debian-archive)	BASE=(	# now redundant
 				"http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
@@ -169,6 +177,8 @@ case "$VERS" in
 ([1-4].[0-9]_r[0-9])	;;
 (*[^0-9.]*)	OOPS "Huh? Version is $VERS";;
 ([0-9]*.*[0-9])	;;
+(*[^0-9]*)	OOPS "Huh? Version is $VERS";;
+([0-9]*)	;;
 (*)		OOPS "Huh? Version is $VERS";;
 esac
 
@@ -440,7 +450,7 @@ local res dat checker
 
 [ n = "${!1}" ] && return
 
-o v dat fgrep "$DAT" "$1"
+o v dat awk -vX="$DAT" '$2 == X { print }' "$1"
 [ -n "$dat" ] || OOPS "$1 does not contain checksum for $DAT"
 get checker "$2" coreutils
 printf 'chk %s\r' "$1"
