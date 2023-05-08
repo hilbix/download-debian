@@ -27,6 +27,7 @@ get GPG		gpg
 
 EX='
 see also: http://cdimage.debian.org/cdimage/release/
+          http://cdimage.debian.org/cdimage/cloud/
           http://cdimage.debian.org/cdimage/archive/
           http://cdimage.debian.org/cdimage/openstack/
           http://cdimage.debian.org/cdimage/openstack/archive/
@@ -35,7 +36,9 @@ see also: http://cdimage.debian.org/cdimage/release/
           http://cdimage.ubuntu.com/
           https://files.devuan.org/
 
-Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly debian-openstack-11
+Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly debian-openstack-10.13.0
+          Pulls "latest", ingle time use: debian-cloud-11-bullseye debian-generic-11-bullseye debian-12-bookworm
+          debian-cloud-11-bullseye-20230124-1270 debian-12-bookworm-daily-20230424-1360
           ubuntu-18.04.1 kubuntu-18.04.1 ubuntu-server-18.04.1
           devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1
 Version? '
@@ -72,11 +75,46 @@ case "$BRAND" in
 			)
 			BRAND=debian
 			;;
+# THESE NO MORE PROVIDE ANY SECURITY WHATSOEVER
+# as the .sign files are missing
+# SO THESE IMAGES ARE PRONE TO SILENT UNDETECTABLE SUPPLY-CHAIN-ATTACKS
+# as if a MITM is able to manipulate the .qcow2 image, the same is true for the SHA512SUM files.
+# ONLY A .sig FILE CAN PROTECT AGAINST THIS as then the debian build infrastructure must have been hacked
+# (which, in contrast, is neither silent nor undetectable)
+#
+# debian-cloud actually is genericcloud
+# it tries to autodetect, where non-daily takes preference
+# sigh^0 genericcloud?  really?
+#(debian-cloud)		DIST=debian-genericcloud;&
+#(debian-generic|debian-genericcloud)
+#			# sigh^1 Heuristics
+#			CV="${VERS#*-}"
+#			CN="${CV%%-*}"
+#			CV="${CV#"$CN"}"
+#			VERS="${VERS%%-*}"
+#			# sigh^2 you must know the right codename to the code number
+#			case "$CN" in
+#			(*[^a-zA-Z]*)	OOPS "version must be something ##-CODENAME[-backports][-daily][-STAMP] but is $VERS-$CN$CV";;
+#			esac
+#			# sigh^3 WTF why?
+#			case "$CV" in
+#			(back*)		CN="$CN-backports"; CV="${CV#"${CV%%-*}"}"; VERS="$VERS-backports";;
+#			esac
+#			# sigh^3 latest|version|daily
+#			CX="${CV#"${CV%%[0-9]*}"}"
+#			CX="${CX:-latest}"
+#			CD="${DIST#debian-}"
+#			BASE=(
+#				"http://cloud.debian.org/images/cloud/$CN/$CX/debian-%s-$CD-$ARCH$CV.qcow2"
+#				"http://cloud.debian.org/images/cloud/$CN/daily/$CX/debian-%s-$CD-$ARCH$CV.qcow2"
+#			)
+#			;;
+
+# use debian-cloud for debian >= 10, or debian-generic which supports bare-metal, too
 (debian-openstack)	BASE=(
-				"http://cdimage.debian.org/cdimage/openstack/current-%s/debian-%s-openstack-${ARCH}.qcow2"
-				"http://cdimage.debian.org/cdimage/openstack/archive/%s/debian-%s-openstack-${ARCH}.qcow2"
+				"http://cdimage.debian.org/cdimage/openstack/current-%s/debian-%s-openstack-$ARCH.qcow2"
+				"http://cdimage.debian.org/cdimage/openstack/archive/%s/debian-%s-openstack-$ARCH.qcow2"
 			)
-			BRAND=debian-openstack
 			;;
 (debian-archive)	BASE=(	# now redundant
 				"http://cdimage.debian.org/cdimage/archive/%s/$ARCH/iso-cd/debian-%s-$ARCH-netinst.iso"
