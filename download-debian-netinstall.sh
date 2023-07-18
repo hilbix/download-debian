@@ -488,7 +488,7 @@ local res dat checker
 
 [ n = "${!1}" ] && return
 
-o v dat awk -vX="$DAT" '$2 == X { print }' "$1"
+o v dat awk -vX="$DAT" $'{ sub(/ \\*/,"  ") }\n$2 == X { print }' "$1"
 [ -n "$dat" ] || OOPS "$1 does not contain checksum for $DAT"
 get checker "$2" coreutils
 printf 'chk %s\r' "$1"
