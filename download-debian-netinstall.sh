@@ -37,10 +37,10 @@ see also: http://cdimage.debian.org/cdimage/release/
           https://files.devuan.org/
 
 Examples: 9.9.0:i386 debian-10.2.0 debian-daily debian-weekly debian-openstack-10.13.0
-          Pulls "latest", ingle time use: debian-cloud-11-bullseye debian-generic-11-bullseye debian-12-bookworm
+          Pulls "latest", single time use: debian-cloud-11-bullseye debian-generic-11-bullseye debian-12-bookworm
           debian-cloud-11-bullseye-20230124-1270 debian-12-bookworm-daily-20230424-1360
-          ubuntu-18.04.1 kubuntu-18.04.1 ubuntu-server-18.04.1
-          devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1
+          ubuntu-18.04.1 kubuntu-18.04.1 ubuntu-server-18.04.1 lubuntu-22.04.4
+          devuan-jessie-1.0.0 devuan-ascii-2.0.0 devuan-ascii-2.1 devuan-beowulf-3.1.1 devuan-chimaera-4.0.0 devuan-daedalus-5.0.1
 Version? '
 [ -n "$DEST" ] || read -p "$EX" DEST || exit
 
@@ -181,6 +181,7 @@ esac
 MD5SUMS=y
 SHA1SUMS=y
 SHA256SUMS=y
+SHA256SUMStxt=n	# And now to something completely different
 SHA512SUMS=y
 
 case "$BRAND" in
@@ -195,10 +196,14 @@ debian*)	KEYS=debian-role-keys.gpg
 		MD5SUMS=n		# WTF why?  suddenly those disappeared
 		SHA1SUMS=n		# WTF why?  suddenly those disappeared
 		;;
-(devuan*)	KEYS=devuan-devs.gpg
+(devuan*)	# And now to something completely different ..
+		# .. Devuan which enriches our Universe with so much unnecessary entropy ..
+		KEYS=devuan-devs.gpg
 		SIGS=asc
 		MD5SUMS=n
 		SHA1SUMS=n
+		SHA256SUMS=m
+		SHA256SUMStxt=m
 		SHA512SUMS=n
 		;;
 (*)		OOPS "unknown brand: $BRAND for version $VERS";;
@@ -253,6 +258,12 @@ SUMS=()
 for a in MD5SUMS SHA1SUMS SHA256SUMS SHA512SUMS
 do
 	[ n = "${!a}" ] || SUMS+=("$a")
+done
+# And now to somethings completely different
+for a in SHA256SUMS.txt
+do
+	b="${a//./}"
+	[ n = "${!b}" ] || SUMS+=("$a")
 done
 
 [ -s "$HOME/.proxy.conf" ] && . "$HOME/.proxy.conf"
@@ -482,11 +493,13 @@ done
 return 1;
 }
 
+verified=false
 check()
 {
-local res dat checker
+local res dat checker b
 
-[ n = "${!1}" ] && return
+b="${1//./}"; [ m = "${!b}" ] && [ ! -s "$1" ] && return	# and now to something completely different
+[ n = "${!b}" ] && return
 
 o v dat awk -vX="$DAT" $'{ sub(/ \\*/,"  ") }\n$2 == X { print }' "$1"
 [ -n "$dat" ] || OOPS "$1 does not contain checksum for $DAT"
@@ -495,7 +508,7 @@ printf 'chk %s\r' "$1"
 x v res "$checker" --check --strict <<<"$dat" &&
 printf '%12s: %s\n' "$1" "$res" &&
 case "$res" in
-(*": OK")	return;;
+(*": OK")	verified=:; return;;
 esac
 OOPS "$1 mismatch" "(perhaps remove $PWD and try again)"
 }
@@ -519,16 +532,22 @@ done
 for a in "${SUMS[@]}"
 do
 	printf '%12s: ' "$a"
+	b="${a//./}"; [ m = "${!b}" ] && [ ! -s "$a" ] && continue	# and now to something completely different
 	[ sign = "$SIGS" ] || [ -L "$a.sign" ] || o ln -s "$a.$SIGS" "$a.sign"
 	( o denazify-and-add-a-brain-to-gpg-verify "$a.sign" ) ||
 	OOPS "verify failure for $a - the missing key is probably named $KEYS" "try to find the right key and copy it to $HERE/keyrings/.$DIR/" "or, if you trust me and the git repo and the key happens to be there:" "$HINT"
 done
 
+verified=false
+
 # Verify download with checkusm
 check MD5SUMS		md5sum
 check SHA1SUMS		sha1sum
 check SHA256SUMS	sha256sum
+check SHA256SUMS.txt	sha256sum	# and now to something completely different
 check SHA512SUMS	sha512sum
+
+$verified || OOPS "verification impossible, no usable checksum file found"
 
 # Create predictable easy to use softlinks
 SHORT="${BASE##*/}"
