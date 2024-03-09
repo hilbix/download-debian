@@ -55,7 +55,7 @@ There is no autodetection whatsoever.  So you have to adopt to the distro in que
 
 Notes:
 
-- Old versions of Debian are now downloaded using `jogdo-lite` as a fallback automatically
+- Old versions of Debian are now downloaded using `jigdo-lite` as a fallback automatically
 
 - Refreshing/resuming/rechecking downloads is supported.
   - `wget` then checks timestamps and downloads only changed files.
@@ -74,6 +74,21 @@ Notes:
   ```
 
 - You can put the `export`-lines in a file `~/.proxy.conf`
+
+This here worked very well for ProxMox out of the box:
+
+- Following assumes your Datacenter Storage `ISO image` content is at `/zfs/ISO`
+  - `git clone --recursive https://github.com/hilbix/download-debian.git /zfs/ISO/download-debian/`
+  - `ln -s ../template/iso /zfs/ISO/download-debian/ISO`
+  - `/zfs/ISO/download-debian/download-debian-netinstall.sh 12.5.0`
+- I really have no clue what the ProxMox UI advanced options for ISO "Download from URL" should tell me, sorry.
+  - `Verify certificates` sounds promising, however what is it supposed to do for me?
+  - Why is there no hash value shown on the `ISO Images` view?  Why is there no "verified" batch or something like that?
+  - `download-debian` (this here) securely verifies the downloads before linking them to the destination, so you cannot accidentally use compromized data.
+  - I do no think this is the best we can do, instead I think this just is the absolute bare minimum which always must be ensured by default.  (YMMV)
+  - However it looks like ProxMox does not even try to block you from downloading tampered data.
+  - And I do not understand why there is lacking an authentication step or how it is supposed to work.
+  - Perhaps I am just simply too stupid to understand, how ProxMox secures us against acidentally downloading compromized content by default.
 
 
 ## License
